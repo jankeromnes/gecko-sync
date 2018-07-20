@@ -1,0 +1,31 @@
+version: 2.0
+
+jobs:
+  mirror-central:
+    docker:
+      - image: janitortechnology/firefox:latest
+    steps:
+      - run:
+          command: |
+            mkdir -p ~/.config
+            printf "[user]\n\tname = $GIT_USER_NAME\n\temail = $GIT_USER_EMAIL\n[fetch]\n\tprune = true\n[hub]\n\tprotocol = https\n" > ~/.gitconfig
+            printf "github.com:\n- user: $GITHUB_LOGIN\n  oauth_token: $GITHUB_TOKEN\n  protocol: https\n" > ~/.config/hub
+            printf "machine github.com\nlogin $GITHUB_LOGIN\npassword $GITHUB_TOKEN\n" > ~/.netrc
+            git -c cinnabar.clone=https://github.com/glandium/gecko clone hg::https://hg.mozilla.org/mozilla-unified ~/mozilla-unified
+            cd ~/mozilla-unified
+            git remote add $GITHUB_LOGIN https://github.com/$GITHUB_LOGIN/gecko
+            git push $GITHUB_LOGIN branches/default/tip:default
+
+workflows:
+  version: 2
+  mirror-gecko:
+    triggers:
+      - schedule:
+          cron: "0 0,6,12,18 * * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - mirror-central
+
